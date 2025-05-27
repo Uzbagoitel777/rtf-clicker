@@ -1,4 +1,5 @@
 import pygame as pg
+import sqlite3 as sql
 
 
 class RtfClicker:
@@ -24,11 +25,40 @@ class RtfClicker:
             "energy_icon": pg.image.load("assets/energy.png").convert_alpha()
         }
         self.big_font = pg.font.SysFont("Inter", 65)
-        self.currency = 2136521
+
+        self.db_conn = sql.connect('userdata.db')
+        self.db_cursor = self.db_conn.cursor()
+        try:
+            userdata = ''
+            for field in self.db_cursor.execute('''SELECT * FROM UserData''').fetchone():
+                userdata += f'{str(field)} | '
+            print(f'Userdata: {userdata}')
+        except sql.OperationalError:
+            self.db_create_tables()
+
+        self.balance = self.fetch_userdata('Balance')
+
+        self.time_since_autosave = 0
 
     def button_action(self):
         print("Button pressed!")
-        self.currency += 1
+        self.balance += 1
+
+    def db_create_tables(self):
+        self.db_cursor.execute('''CREATE TABLE "UserData" (
+        	"ID"	INTEGER,
+        	"Username"	TEXT NOT NULL,
+        	"Balance"	REAL,
+        	PRIMARY KEY("ID")
+        )''')
+
+    def fetch_userdata(self, field):
+        return self.db_cursor.execute(f'''SELECT {field} from UserData''').fetchone()[0]
+
+    def update_userdata(self, field, value):
+        self.db_cursor.execute(f'''UPDATE UserData SET {field} = {value}''')
+
+
 
     def run(self):
         while True:
@@ -43,16 +73,16 @@ class RtfClicker:
                     exit()
                 if e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
                     if active_btn is not None and active_btn.rect.collidepoint(e.pos):
-                        active_btn.pressed()  # Call the button's function
+                        active_btn.pressed()
 
-            # self.screen.fill((255, 255, 255))  # Clear the screen
             self.screen.blit(self.background, (0, 0))
 
             for button in self.buttons.values():
-                button.draw(self.screen)  # Render the image
-            self.screen.blit(self.big_font.render(str(self.currency), True, (255, 255, 255)), (self.display_size[0]//2, 80))
+                button.draw(self.screen)
+            self.screen.blit(self.big_font.render(str(int(self.balance)), True, (255, 255, 255)), (self.display_size[0] // 2, 80))
             self.screen.blit(pg.transform.scale(self.sprites["brain_count_icon"], (60, 60)), (self.display_size[0]//2 - 80, 70))
             pg.display.flip()
+
             self.clock.tick(60)
 
 
@@ -103,7 +133,6 @@ class SpriteButton(Button):
 
         print(self.img_rect.center)
         print(image_offset)
-        # self.img_rect.center = sum_coords(self.img_rect.center, image_offset)
         self.img_rect.center = sum_coords(self.rect.center, image_offset)
         print(self.img_rect.center)
 
